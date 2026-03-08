@@ -1,48 +1,40 @@
 # Concurrent Audit Tracker
 
 ## Current State
-
-The app has:
-- Loan entry form (LoanFormDialog) with borrower name, loan type, loan number, CERSAI applicable/done, Insurance applicable/done checkboxes
-- Monthly report tab showing summary counts (CERSAI completed/pending, Insurance completed/pending, total loans)
-- Backend `LoanEntry` type with boolean fields but no reason fields
-- `getMonthSummary` query returns aggregate counts only
-- No way to record why CERSAI or Insurance is not done
-- Monthly report does not list individual pending loan accounts
+The app tracks monthly concurrent audit loan compliance. It has:
+- AuditMonth records (create, list, close, delete)
+- LoanEntry records per month (add, edit, delete, list)
+- Monthly summary: CERSAI/Insurance applicable, completed, pending counts
+- Pending loans list with borrower name, loan number, and reasons for non-compliance
+- PDF report via browser print
+- Clear loan data and Close Month actions
 
 ## Requested Changes (Diff)
 
 ### Add
-- `cersaiPendingReason` (optional text) field to `LoanEntry` — shown in form when CERSAI is applicable but NOT done
-- `insurancePendingReason` (optional text) field to `LoanEntry` — shown in form when Insurance is applicable but NOT done
-- New backend query `getPendingLoans(auditMonthId)` returning list of `PendingLoanRow` records (borrowerName, loanNumber, cersaiPending bool, insurancePending bool, cersaiReason text, insuranceReason text) for loans where either CERSAI or Insurance is pending
-- Monthly Report: a "Pending Loans" table section below the summary counts, listing Borrower Name, Loan Number, pending type(s), and reason(s)
+- `rolloverPendingLoans(fromMonthId: Nat, toMonthId: Nat): async Nat` backend function that:
+  - Reads all loan entries from `fromMonthId` where CERSAI is pending (applicable=true, done=false) OR Insurance is pending (applicable=true, done=false)
+  - Copies those entries into `toMonthId`, preserving borrowerName, loanType, loanNumber, cersaiApplicable, insuranceApplicable, and the existing pendingReason fields
+  - Sets cersaiDone=false for entries where cersai was pending; sets insuranceDone=false for entries where insurance was pending
+  - Assigns sequential sNo values continuing from existing entries in the target month
+  - Returns the count of rolled-over entries
+- "Rollover Pending" button in MonthsDashboard next to each month card (only for OPEN months)
+- Rollover dialog: user selects a target month (another OPEN month) to roll pending loans into, then confirms
+- Alternatively, when creating a new month, offer an optional "Roll over pending from..." dropdown to auto-populate the new month with pending loans from a selected source month
+- In MonthlyReportTab, show a "Rolled Over from [Month]" badge/note on loans that were rolled over (optional visual indicator — can be done purely frontend by tracking rollover state)
 
 ### Modify
-- `addLoanEntry` and `updateLoanEntry` backend functions to accept two new optional text parameters: `cersaiPendingReason` and `insurancePendingReason`
-- `LoanEntry` type in backend to include `cersaiPendingReason : Text` and `insurancePendingReason : Text`
-- `LoanFormDialog`: conditionally show a text input for "Reason for CERSAI not done" when cersaiApplicable=true AND cersaiDone=false; same for insurance
-- `backend.d.ts` updated to reflect new fields
+- MonthsDashboard: Add a "Rollover" action per month card — clicking opens a dialog to pick a destination month and execute the rollover
+- useQueries.ts: Add `useRolloverPendingLoans` mutation hook
+- New Month creation dialog: add optional "Copy pending from previous month" dropdown so rollover can happen at month creation time
 
 ### Remove
 - Nothing removed
 
 ## Implementation Plan
-
-1. Update `main.mo`:
-   - Add `cersaiPendingReason : Text` and `insurancePendingReason : Text` to `LoanEntry` type
-   - Add `PendingLoanRow` type for the pending loans query result
-   - Update `addLoanEntry` and `updateLoanEntry` to accept and store the two reason fields
-   - Add `getPendingLoans(auditMonthId)` query returning all loans where cersaiApplicable && !cersaiDone OR insuranceApplicable && !insuranceDone
-2. Update `backend.d.ts` to reflect new fields and new query
-3. Update `LoanFormDialog.tsx`:
-   - Add `cersaiPendingReason` and `insurancePendingReason` to FormState
-   - Show a Textarea input for CERSAI reason when cersaiApplicable=true AND cersaiDone=false
-   - Show a Textarea input for Insurance reason when insuranceApplicable=true AND insuranceDone=false
-   - Pass reasons to addLoanEntry / updateLoanEntry mutations
-4. Update `useQueries.ts`:
-   - Add `useGetPendingLoans` query hook
-   - Update `useAddLoanEntry` and `useUpdateLoanEntry` to pass reason fields
-5. Update `MonthlyReportTab.tsx`:
-   - Fetch pending loans using `useGetPendingLoans`
-   - Add a "Pending Loan Accounts" section after the summary, showing a table with Borrower Name, Loan Number, Pending Type (CERSAI / Insurance / Both), and Reason columns
+1. Regenerate Motoko backend adding `rolloverPendingLoans(fromMonthId, toMonthId)` function
+2. Update `backend.d.ts` with new function signature (auto-generated)
+3. Add `useRolloverPendingLoans` mutation to `useQueries.ts`
+4. Update `MonthsDashboard` New Month dialog to include an optional "Roll over pending from" select dropdown; after month creation, if a source month was selected, call rollover automatically
+5. Add a standalone "Rollover" button on each month card (opens a dialog to pick destination month)
+6. Show rollover count in success toast

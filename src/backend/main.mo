@@ -11,15 +11,15 @@ import Principal "mo:core/Principal";
 import MixinAuthorization "authorization/MixinAuthorization";
 import AccessControl "authorization/access-control";
 
-import Migration "migration";
-(with migration = Migration.run)
 actor {
   public type Status = { #open; #closed };
   public type LoanEntryStatus = {
     cersaiCompleted : Nat;
     cersaiPending : Nat;
+    cersaiApplicable : Nat;
     insuranceCompleted : Nat;
     insurancePending : Nat;
+    insuranceApplicable : Nat;
     totalLoans : Nat;
   };
 
@@ -302,12 +302,15 @@ actor {
     );
     var cersaiCompleted = 0;
     var cersaiPending = 0;
+    var cersaiApplicable = 0;
     var insuranceCompleted = 0;
     var insurancePending = 0;
+    var insuranceApplicable = 0;
 
     entries.values().forEach(
       func(entry) {
         if (entry.cersaiApplicable) {
+          cersaiApplicable += 1;
           if (entry.cersaiDone) {
             cersaiCompleted += 1;
           } else {
@@ -315,6 +318,7 @@ actor {
           };
         };
         if (entry.insuranceApplicable) {
+          insuranceApplicable += 1;
           if (entry.insuranceDone) {
             insuranceCompleted += 1;
           } else {
@@ -327,8 +331,10 @@ actor {
     {
       cersaiCompleted;
       cersaiPending;
+      cersaiApplicable;
       insuranceCompleted;
       insurancePending;
+      insuranceApplicable;
       totalLoans = entries.size();
     };
   };
@@ -389,6 +395,79 @@ actor {
             loanEntries.remove(id);
           }
         );
+      };
+    };
+  };
+
+  /// New function to rollover pending loans from one month to another.
+  public shared ({ caller }) func rolloverPendingLoans(fromMonthId : Nat, toMonthId : Nat) : async Nat {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can rollover pending loans");
+    };
+
+    // Verify fromMonthId exists
+    switch (auditMonths.get(fromMonthId)) {
+      case (null) { Runtime.trap("Source Audit Month not found") };
+      case (?_sourceMonth) {
+        // Verify toMonthId exists and is open
+        switch (auditMonths.get(toMonthId)) {
+          case (null) { Runtime.trap("Target Audit Month not found") };
+          case (?targetMonth) {
+            if (targetMonth.status == #closed) {
+              Runtime.trap("Target audit month is closed");
+            };
+
+            // Find all pending loan entries in the source month
+            let pendingEntries = loanEntries.values().toArray().filter(
+              func(entry) {
+                switch (entry.auditMonthId == fromMonthId) {
+                  case (true) {
+                    (entry.cersaiApplicable and not entry.cersaiDone) or
+                    (entry.insuranceApplicable and not entry.insuranceDone)
+                  };
+                  case (false) { false };
+                };
+              }
+            );
+
+            // Sort pending entries by sNo ascending
+            let sortedPending = pendingEntries.sort(
+              func(a, b) { Nat.compare(a.sNo, b.sNo) }
+            );
+
+            // Count existing entries in target month to compute sNo offset
+            let existingCount = loanEntries.values().toArray().filter(
+              func(entry) { entry.auditMonthId == toMonthId }
+            ).size();
+
+            // Create new entries in the target month for each pending loan
+            var currentCount = existingCount + 1;
+            let newEntries = sortedPending.map(
+              func(entry) {
+                let newEntry : LoanEntry = {
+                  id = nextLoanId;
+                  auditMonthId = toMonthId;
+                  sNo = currentCount;
+                  borrowerName = entry.borrowerName;
+                  loanType = entry.loanType;
+                  loanNumber = entry.loanNumber;
+                  cersaiApplicable = entry.cersaiApplicable;
+                  cersaiDone = false; // Reset to false
+                  cersaiPendingReason = if (entry.cersaiApplicable and not entry.cersaiDone) { entry.cersaiPendingReason } else { "" };
+                  insuranceApplicable = entry.insuranceApplicable;
+                  insuranceDone = false; // Reset to false
+                  insurancePendingReason = if (entry.insuranceApplicable and not entry.insuranceDone) { entry.insurancePendingReason } else { "" };
+                };
+                loanEntries.add(nextLoanId, newEntry);
+                nextLoanId += 1;
+                currentCount += 1;
+              }
+            );
+
+            // Return count of entries rolled over
+            pendingEntries.size();
+          };
+        };
       };
     };
   };

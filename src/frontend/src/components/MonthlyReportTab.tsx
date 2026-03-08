@@ -14,10 +14,12 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   CheckCircle2,
+  ClipboardList,
   Clock,
   FileBarChart2,
   FileText,
   HeartPulse,
+  Info,
   Loader2,
   Lock,
   Shield,
@@ -179,13 +181,20 @@ export function MonthlyReportTab({ month }: MonthlyReportTabProps) {
 
       {/* Metric Cards (screen only) */}
       {isLoading ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 print-hide">
-          {[1, 2, 3, 4, 5].map((i) => (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 print-hide">
+          {[1, 2, 3, 4, 5, 6, 7].map((i) => (
             <Skeleton key={i} className="h-24 rounded-lg" />
           ))}
         </div>
       ) : summary ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 print-hide">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 print-hide">
+          <MetricCard
+            label="CERSAI Applicable"
+            value={Number(summary.cersaiApplicable)}
+            icon={<ClipboardList className="w-4 h-4" />}
+            color="info"
+            dataOcid="report.cersai_applicable_card"
+          />
           <MetricCard
             label="CERSAI Completed"
             value={Number(summary.cersaiCompleted)}
@@ -199,6 +208,13 @@ export function MonthlyReportTab({ month }: MonthlyReportTabProps) {
             icon={<Clock className="w-4 h-4" />}
             color="warning"
             dataOcid="report.cersai_pending_card"
+          />
+          <MetricCard
+            label="Insurance Applicable"
+            value={Number(summary.insuranceApplicable)}
+            icon={<ClipboardList className="w-4 h-4" />}
+            color="info"
+            dataOcid="report.insurance_applicable_card"
           />
           <MetricCard
             label="Insurance Completed"
@@ -280,7 +296,12 @@ export function MonthlyReportTab({ month }: MonthlyReportTabProps) {
                   CERSAI Compliance
                 </h3>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <ReportRow
+                  label="CERSAI Applicable"
+                  value={Number(summary.cersaiApplicable)}
+                  status="neutral"
+                />
                 <ReportRow
                   label="CERSAI Completed"
                   value={Number(summary.cersaiCompleted)}
@@ -304,7 +325,12 @@ export function MonthlyReportTab({ month }: MonthlyReportTabProps) {
                   Insurance Compliance
                 </h3>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <ReportRow
+                  label="Insurance Applicable"
+                  value={Number(summary.insuranceApplicable)}
+                  status="neutral"
+                />
                 <ReportRow
                   label="Insurance Completed"
                   value={Number(summary.insuranceCompleted)}
@@ -465,13 +491,14 @@ function MetricCard({
   label: string;
   value: number;
   icon: React.ReactNode;
-  color: "success" | "warning" | "neutral";
+  color: "success" | "warning" | "neutral" | "info";
   dataOcid: string;
 }) {
   const colorClasses = {
     success: "bg-success text-success-text",
     warning: "bg-warning text-warning-text",
     neutral: "bg-secondary text-secondary-foreground",
+    info: "bg-primary/10 text-primary",
   };
 
   return (
@@ -499,23 +526,31 @@ function ReportRow({
 }: {
   label: string;
   value: number;
-  status: "completed" | "pending";
+  status: "completed" | "pending" | "neutral";
 }) {
+  const iconEl =
+    status === "completed" ? (
+      <CheckCircle2 className="w-4 h-4 text-success-text shrink-0" />
+    ) : status === "pending" ? (
+      <Clock className="w-4 h-4 text-warning-text shrink-0" />
+    ) : (
+      <Info className="w-4 h-4 text-primary shrink-0" />
+    );
+
+  const valueColor =
+    status === "completed"
+      ? "text-success-text"
+      : status === "pending"
+        ? "text-warning-text"
+        : "text-primary";
+
   return (
     <div className="flex items-center justify-between py-3 px-4 rounded-md bg-muted/30 border border-border">
       <div className="flex items-center gap-2.5">
-        {status === "completed" ? (
-          <CheckCircle2 className="w-4 h-4 text-success-text shrink-0" />
-        ) : (
-          <Clock className="w-4 h-4 text-warning-text shrink-0" />
-        )}
+        {iconEl}
         <span className="text-sm text-foreground">{label}</span>
       </div>
-      <span
-        className={`text-xl font-bold font-display ${
-          status === "completed" ? "text-success-text" : "text-warning-text"
-        }`}
-      >
+      <span className={`text-xl font-bold font-display ${valueColor}`}>
         {value}
       </span>
     </div>

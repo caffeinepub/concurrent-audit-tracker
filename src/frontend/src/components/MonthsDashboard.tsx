@@ -21,10 +21,18 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Building2,
   Calendar,
+  ChevronsRight,
   Loader2,
   LogIn,
   LogOut,
@@ -40,6 +48,7 @@ import {
   useCreateAuditMonth,
   useDeleteAuditMonth,
   useListAuditMonths,
+  useRolloverPendingLoans,
 } from "../hooks/useQueries";
 
 interface MonthsDashboardProps {
@@ -51,12 +60,26 @@ export function MonthsDashboard({ onSelectMonth }: MonthsDashboardProps) {
   const { data: months, isLoading } = useListAuditMonths();
   const createMutation = useCreateAuditMonth();
   const deleteMutation = useDeleteAuditMonth();
+  const rolloverMutation = useRolloverPendingLoans();
 
   const [newMonthOpen, setNewMonthOpen] = useState(false);
   const [monthName, setMonthName] = useState("");
+  const [rolloverSourceId, setRolloverSourceId] = useState<string>("");
   const [deleteTarget, setDeleteTarget] = useState<AuditMonth | null>(null);
 
+  // Rollover standalone dialog: pick destination month for a source month
+  const [rolloverDialogSource, setRolloverDialogSource] =
+    useState<AuditMonth | null>(null);
+  const [rolloverDestId, setRolloverDestId] = useState<string>("");
+
   const isLoggedIn = !!identity;
+
+  // Sort months newest first
+  const sortedMonths = months
+    ? [...months].sort((a, b) => Number(b.createdAt) - Number(a.createdAt))
+    : [];
+
+  const openMonths = sortedMonths.filter((m) => m.status === Status.open);
 
   const handleCreateMonth = async () => {
     if (!monthName.trim()) {
@@ -64,9 +87,30 @@ export function MonthsDashboard({ onSelectMonth }: MonthsDashboardProps) {
       return;
     }
     try {
-      await createMutation.mutateAsync(monthName.trim().toUpperCase());
-      toast.success(`Audit month "${monthName.trim().toUpperCase()}" created`);
+      const newMonth = await createMutation.mutateAsync(
+        monthName.trim().toUpperCase(),
+      );
+      toast.success(`Audit month "${newMonth.monthName}" created`);
+
+      // Auto-rollover if source was selected
+      if (rolloverSourceId) {
+        try {
+          const count = await rolloverMutation.mutateAsync({
+            fromMonthId: BigInt(rolloverSourceId),
+            toMonthId: newMonth.id,
+          });
+          toast.success(
+            `${Number(count)} pending loan${Number(count) !== 1 ? "s" : ""} rolled over from source month`,
+          );
+        } catch {
+          toast.error(
+            "Month created but rollover failed. Try rolling over manually.",
+          );
+        }
+      }
+
       setMonthName("");
+      setRolloverSourceId("");
       setNewMonthOpen(false);
     } catch {
       toast.error("Failed to create audit month");
@@ -84,10 +128,28 @@ export function MonthsDashboard({ onSelectMonth }: MonthsDashboardProps) {
     }
   };
 
-  // Sort months newest first
-  const sortedMonths = months
-    ? [...months].sort((a, b) => Number(b.createdAt) - Number(a.createdAt))
-    : [];
+  const handleRollover = async () => {
+    if (!rolloverDialogSource || !rolloverDestId) return;
+    try {
+      const count = await rolloverMutation.mutateAsync({
+        fromMonthId: rolloverDialogSource.id,
+        toMonthId: BigInt(rolloverDestId),
+      });
+      toast.success(
+        `${Number(count)} pending loan${Number(count) !== 1 ? "s" : ""} rolled over to destination month`,
+      );
+      setRolloverDialogSource(null);
+      setRolloverDestId("");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Rollover failed";
+      toast.error(msg);
+    }
+  };
+
+  // Destination options for standalone rollover: all open months except the source
+  const rolloverDestOptions = openMonths.filter(
+    (m) => rolloverDialogSource && m.id !== rolloverDialogSource.id,
+  );
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -169,11 +231,12 @@ export function MonthsDashboard({ onSelectMonth }: MonthsDashboardProps) {
                   Enter a month identifier (e.g. JAN-2026, FEB-2026)
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-3 py-2">
+              <div className="space-y-4 py-2">
                 <div className="space-y-1.5">
                   <Label htmlFor="month-name">Month Name</Label>
                   <Input
                     id="month-name"
+                    data-ocid="months.dialog.input"
                     placeholder="e.g. JAN-2026"
                     value={monthName}
                     onChange={(e) => setMonthName(e.target.value)}
@@ -183,6 +246,45 @@ export function MonthsDashboard({ onSelectMonth }: MonthsDashboardProps) {
                     className="uppercase placeholder:normal-case"
                   />
                 </div>
+
+                {/* Optional rollover source */}
+                {openMonths.length > 0 && (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="rollover-source">
+                      Roll over pending loans from{" "}
+                      <span className="text-muted-foreground font-normal">
+                        (optional)
+                      </span>
+                    </Label>
+                    <Select
+                      value={rolloverSourceId}
+                      onValueChange={setRolloverSourceId}
+                    >
+                      <SelectTrigger
+                        id="rollover-source"
+                        data-ocid="months.dialog.rollover_select"
+                      >
+                        <SelectValue placeholder="Select a month to carry forward..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {openMonths.map((m) => (
+                          <SelectItem
+                            key={m.id.toString()}
+                            value={m.id.toString()}
+                          >
+                            {m.monthName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {rolloverSourceId && (
+                      <p className="text-xs text-muted-foreground">
+                        Pending CERSAI / Insurance accounts from the selected
+                        month will be automatically copied into this new month.
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
               <DialogFooter>
                 <Button
@@ -190,6 +292,7 @@ export function MonthsDashboard({ onSelectMonth }: MonthsDashboardProps) {
                   onClick={() => {
                     setNewMonthOpen(false);
                     setMonthName("");
+                    setRolloverSourceId("");
                   }}
                   data-ocid="months.dialog.cancel_button"
                 >
@@ -197,13 +300,17 @@ export function MonthsDashboard({ onSelectMonth }: MonthsDashboardProps) {
                 </Button>
                 <Button
                   onClick={() => void handleCreateMonth()}
-                  disabled={createMutation.isPending || !monthName.trim()}
+                  disabled={
+                    createMutation.isPending ||
+                    rolloverMutation.isPending ||
+                    !monthName.trim()
+                  }
                   data-ocid="months.dialog.confirm_button"
                 >
-                  {createMutation.isPending && (
+                  {(createMutation.isPending || rolloverMutation.isPending) && (
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   )}
-                  Create Month
+                  {rolloverSourceId ? "Create & Rollover" : "Create Month"}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -241,6 +348,14 @@ export function MonthsDashboard({ onSelectMonth }: MonthsDashboardProps) {
                 index={idx + 1}
                 onClick={() => onSelectMonth(month)}
                 onDelete={() => setDeleteTarget(month)}
+                onRollover={
+                  month.status === Status.open
+                    ? () => {
+                        setRolloverDialogSource(month);
+                        setRolloverDestId("");
+                      }
+                    : undefined
+                }
               />
             ))}
           </div>
@@ -287,6 +402,83 @@ export function MonthsDashboard({ onSelectMonth }: MonthsDashboardProps) {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Rollover Dialog */}
+      <Dialog
+        open={!!rolloverDialogSource}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRolloverDialogSource(null);
+            setRolloverDestId("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Rollover Pending Loans</DialogTitle>
+            <DialogDescription>
+              Copy all pending CERSAI / Insurance accounts from{" "}
+              <strong>{rolloverDialogSource?.monthName}</strong> into another
+              open month.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <Label htmlFor="rollover-dest">Destination Month</Label>
+            <Select value={rolloverDestId} onValueChange={setRolloverDestId}>
+              <SelectTrigger
+                id="rollover-dest"
+                data-ocid="months.rollover_dialog.select"
+              >
+                <SelectValue placeholder="Select destination month..." />
+              </SelectTrigger>
+              <SelectContent>
+                {rolloverDestOptions.length === 0 ? (
+                  <SelectItem value="__none__" disabled>
+                    No other open months available
+                  </SelectItem>
+                ) : (
+                  rolloverDestOptions.map((m) => (
+                    <SelectItem key={m.id.toString()} value={m.id.toString()}>
+                      {m.monthName}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Pending accounts will be added to the destination month with their
+              compliance status reset to pending, so you can update them for the
+              new month.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setRolloverDialogSource(null);
+                setRolloverDestId("");
+              }}
+              data-ocid="months.rollover_dialog.cancel_button"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => void handleRollover()}
+              disabled={
+                !rolloverDestId ||
+                rolloverDestId === "__none__" ||
+                rolloverMutation.isPending
+              }
+              data-ocid="months.rollover_dialog.confirm_button"
+            >
+              {rolloverMutation.isPending && (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              )}
+              Rollover Pending
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Footer */}
       <footer className="border-t border-border py-4 mt-auto print-hide">
         <div className="max-w-5xl mx-auto px-4 sm:px-6">
@@ -312,11 +504,13 @@ function MonthCard({
   index,
   onClick,
   onDelete,
+  onRollover,
 }: {
   month: AuditMonth;
   index: number;
   onClick: () => void;
   onDelete: () => void;
+  onRollover?: () => void;
 }) {
   const isOpen = month.status === Status.open;
 
@@ -357,19 +551,38 @@ function MonthCard({
         </div>
       </button>
 
-      {/* Delete button */}
-      <button
-        type="button"
-        data-ocid={`months.delete_button.${index}`}
-        onClick={(e) => {
-          e.stopPropagation();
-          onDelete();
-        }}
-        aria-label={`Delete ${month.monthName}`}
-        className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-      >
-        <Trash2 className="w-3.5 h-3.5" />
-      </button>
+      {/* Action buttons */}
+      <div className="absolute top-3 right-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        {/* Rollover button */}
+        {isOpen && onRollover && (
+          <button
+            type="button"
+            data-ocid={`months.rollover_button.${index}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onRollover();
+            }}
+            aria-label={`Rollover pending from ${month.monthName}`}
+            title="Rollover pending loans to another month"
+            className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10"
+          >
+            <ChevronsRight className="w-3.5 h-3.5" />
+          </button>
+        )}
+        {/* Delete button */}
+        <button
+          type="button"
+          data-ocid={`months.delete_button.${index}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+          aria-label={`Delete ${month.monthName}`}
+          className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
+      </div>
     </div>
   );
 }

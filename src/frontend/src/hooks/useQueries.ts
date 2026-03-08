@@ -85,10 +85,12 @@ export function useGetMonthSummary(auditMonthId: bigint | null) {
       if (!actor || auditMonthId === null)
         return {
           cersaiPending: BigInt(0),
-          insuranceCompleted: BigInt(0),
-          totalLoans: BigInt(0),
           cersaiCompleted: BigInt(0),
+          cersaiApplicable: BigInt(0),
+          insuranceCompleted: BigInt(0),
           insurancePending: BigInt(0),
+          insuranceApplicable: BigInt(0),
+          totalLoans: BigInt(0),
         };
       return actor.getMonthSummary(auditMonthId);
     },
@@ -244,6 +246,28 @@ export function useClearLoansForMonth() {
       });
       void queryClient.invalidateQueries({
         queryKey: ["pendingLoans", auditMonthId.toString()],
+      });
+    },
+  });
+}
+
+export function useRolloverPendingLoans() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: { fromMonthId: bigint; toMonthId: bigint }) => {
+      if (!actor) throw new Error("Not connected");
+      return actor.rolloverPendingLoans(params.fromMonthId, params.toMonthId);
+    },
+    onSuccess: (_data, variables) => {
+      void queryClient.invalidateQueries({
+        queryKey: ["loans", variables.toMonthId.toString()],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["monthSummary", variables.toMonthId.toString()],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["pendingLoans", variables.toMonthId.toString()],
       });
     },
   });

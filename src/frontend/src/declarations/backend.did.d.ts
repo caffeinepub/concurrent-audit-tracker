@@ -32,8 +32,10 @@ export interface LoanEntry {
 }
 export interface LoanEntryStatus {
   'cersaiPending' : bigint,
+  'insuranceApplicable' : bigint,
   'insuranceCompleted' : bigint,
   'totalLoans' : bigint,
+  'cersaiApplicable' : bigint,
   'cersaiCompleted' : bigint,
   'insurancePending' : bigint,
 }
@@ -87,6 +89,10 @@ export interface _SERVICE {
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'listAuditMonths' : ActorMethod<[], Array<AuditMonth>>,
   'listLoansByMonth' : ActorMethod<[bigint], Array<LoanEntry>>,
+  /**
+   * / New function to rollover pending loans from one month to another.
+   */
+  'rolloverPendingLoans' : ActorMethod<[bigint, bigint], bigint>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
   'updateLoanEntry' : ActorMethod<
     [

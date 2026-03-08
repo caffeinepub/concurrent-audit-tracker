@@ -37,8 +37,10 @@ export const AuditMonth = IDL.Record({
 export const UserProfile = IDL.Record({ 'name' : IDL.Text });
 export const LoanEntryStatus = IDL.Record({
   'cersaiPending' : IDL.Nat,
+  'insuranceApplicable' : IDL.Nat,
   'insuranceCompleted' : IDL.Nat,
   'totalLoans' : IDL.Nat,
+  'cersaiApplicable' : IDL.Nat,
   'cersaiCompleted' : IDL.Nat,
   'insurancePending' : IDL.Nat,
 });
@@ -89,6 +91,7 @@ export const idlService = IDL.Service({
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
   'listAuditMonths' : IDL.Func([], [IDL.Vec(AuditMonth)], ['query']),
   'listLoansByMonth' : IDL.Func([IDL.Nat], [IDL.Vec(LoanEntry)], ['query']),
+  'rolloverPendingLoans' : IDL.Func([IDL.Nat, IDL.Nat], [IDL.Nat], []),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
   'updateLoanEntry' : IDL.Func(
       [
@@ -140,8 +143,10 @@ export const idlFactory = ({ IDL }) => {
   const UserProfile = IDL.Record({ 'name' : IDL.Text });
   const LoanEntryStatus = IDL.Record({
     'cersaiPending' : IDL.Nat,
+    'insuranceApplicable' : IDL.Nat,
     'insuranceCompleted' : IDL.Nat,
     'totalLoans' : IDL.Nat,
+    'cersaiApplicable' : IDL.Nat,
     'cersaiCompleted' : IDL.Nat,
     'insurancePending' : IDL.Nat,
   });
@@ -196,6 +201,7 @@ export const idlFactory = ({ IDL }) => {
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
     'listAuditMonths' : IDL.Func([], [IDL.Vec(AuditMonth)], ['query']),
     'listLoansByMonth' : IDL.Func([IDL.Nat], [IDL.Vec(LoanEntry)], ['query']),
+    'rolloverPendingLoans' : IDL.Func([IDL.Nat, IDL.Nat], [IDL.Nat], []),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
     'updateLoanEntry' : IDL.Func(
         [

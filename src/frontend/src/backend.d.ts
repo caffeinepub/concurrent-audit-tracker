@@ -33,8 +33,10 @@ export interface LoanEntry {
 }
 export interface LoanEntryStatus {
     cersaiPending: bigint;
+    insuranceApplicable: bigint;
     insuranceCompleted: bigint;
     totalLoans: bigint;
+    cersaiApplicable: bigint;
     cersaiCompleted: bigint;
     insurancePending: bigint;
 }
@@ -75,6 +77,10 @@ export interface backendInterface {
     isCallerAdmin(): Promise<boolean>;
     listAuditMonths(): Promise<Array<AuditMonth>>;
     listLoansByMonth(auditMonthId: bigint): Promise<Array<LoanEntry>>;
+    /**
+     * / New function to rollover pending loans from one month to another.
+     */
+    rolloverPendingLoans(fromMonthId: bigint, toMonthId: bigint): Promise<bigint>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     updateLoanEntry(id: bigint, borrowerName: string, loanType: string, loanNumber: string, cersaiApplicable: boolean, cersaiDone: boolean, cersaiPendingReason: string, insuranceApplicable: boolean, insuranceDone: boolean, insurancePendingReason: string): Promise<void>;
 }
