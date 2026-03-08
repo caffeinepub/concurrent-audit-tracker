@@ -74,6 +74,10 @@ export interface _SERVICE {
   'clearLoansForMonth' : ActorMethod<[bigint], undefined>,
   'closeAuditMonth' : ActorMethod<[bigint], undefined>,
   'createAuditMonth' : ActorMethod<[string], AuditMonth>,
+  /**
+   * / New function to delete an audit month and all associated loan entries.
+   */
+  'deleteAuditMonth' : ActorMethod<[bigint], undefined>,
   'deleteLoanEntry' : ActorMethod<[bigint], undefined>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,

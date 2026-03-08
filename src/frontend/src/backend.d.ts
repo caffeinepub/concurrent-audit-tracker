@@ -62,6 +62,10 @@ export interface backendInterface {
     clearLoansForMonth(auditMonthId: bigint): Promise<void>;
     closeAuditMonth(id: bigint): Promise<void>;
     createAuditMonth(monthName: string): Promise<AuditMonth>;
+    /**
+     * / New function to delete an audit month and all associated loan entries.
+     */
+    deleteAuditMonth(auditMonthId: bigint): Promise<void>;
     deleteLoanEntry(id: bigint): Promise<void>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;

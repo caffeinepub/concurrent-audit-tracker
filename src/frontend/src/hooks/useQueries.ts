@@ -49,6 +49,20 @@ export function useCloseAuditMonth() {
   });
 }
 
+export function useDeleteAuditMonth() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: bigint) => {
+      if (!actor) throw new Error("Not connected");
+      return actor.deleteAuditMonth(id);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["auditMonths"] });
+    },
+  });
+}
+
 // ── Loan Entries ─────────────────────────────────────────────────────────────
 
 export function useListLoansByMonth(auditMonthId: bigint | null) {
@@ -106,10 +120,14 @@ export function useAddLoanEntry() {
         params.loanNumber,
         params.cersaiApplicable,
         params.cersaiDone,
-        params.cersaiPendingReason,
+        params.cersaiApplicable && !params.cersaiDone
+          ? params.cersaiPendingReason
+          : "",
         params.insuranceApplicable,
         params.insuranceDone,
-        params.insurancePendingReason,
+        params.insuranceApplicable && !params.insuranceDone
+          ? params.insurancePendingReason
+          : "",
       );
     },
     onSuccess: (_data, variables) => {
@@ -151,10 +169,14 @@ export function useUpdateLoanEntry() {
         params.loanNumber,
         params.cersaiApplicable,
         params.cersaiDone,
-        params.cersaiPendingReason,
+        params.cersaiApplicable && !params.cersaiDone
+          ? params.cersaiPendingReason
+          : "",
         params.insuranceApplicable,
         params.insuranceDone,
-        params.insurancePendingReason,
+        params.insuranceApplicable && !params.insuranceDone
+          ? params.insurancePendingReason
+          : "",
       );
     },
     onSuccess: (_data, variables) => {

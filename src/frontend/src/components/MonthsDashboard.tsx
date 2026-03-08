@@ -1,3 +1,13 @@
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,13 +29,18 @@ import {
   LogIn,
   LogOut,
   Plus,
+  Trash2,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import type { AuditMonth } from "../backend.d";
 import { Status } from "../backend.d";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
-import { useCreateAuditMonth, useListAuditMonths } from "../hooks/useQueries";
+import {
+  useCreateAuditMonth,
+  useDeleteAuditMonth,
+  useListAuditMonths,
+} from "../hooks/useQueries";
 
 interface MonthsDashboardProps {
   onSelectMonth: (month: AuditMonth) => void;
@@ -35,9 +50,11 @@ export function MonthsDashboard({ onSelectMonth }: MonthsDashboardProps) {
   const { login, clear, isLoggingIn, identity } = useInternetIdentity();
   const { data: months, isLoading } = useListAuditMonths();
   const createMutation = useCreateAuditMonth();
+  const deleteMutation = useDeleteAuditMonth();
 
   const [newMonthOpen, setNewMonthOpen] = useState(false);
   const [monthName, setMonthName] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<AuditMonth | null>(null);
 
   const isLoggedIn = !!identity;
 
@@ -53,6 +70,17 @@ export function MonthsDashboard({ onSelectMonth }: MonthsDashboardProps) {
       setNewMonthOpen(false);
     } catch {
       toast.error("Failed to create audit month");
+    }
+  };
+
+  const handleDeleteMonth = async () => {
+    if (!deleteTarget) return;
+    try {
+      await deleteMutation.mutateAsync(deleteTarget.id);
+      toast.success(`"${deleteTarget.monthName}" deleted`);
+      setDeleteTarget(null);
+    } catch {
+      toast.error("Failed to delete audit month");
     }
   };
 
@@ -212,11 +240,52 @@ export function MonthsDashboard({ onSelectMonth }: MonthsDashboardProps) {
                 month={month}
                 index={idx + 1}
                 onClick={() => onSelectMonth(month)}
+                onDelete={() => setDeleteTarget(month)}
               />
             ))}
           </div>
         )}
       </main>
+
+      {/* Delete Month Confirmation */}
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Delete {deleteTarget?.monthName}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete{" "}
+              <strong>{deleteTarget?.monthName}</strong> and all its loan
+              entries. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              data-ocid="months.delete_dialog.cancel_button"
+              onClick={() => setDeleteTarget(null)}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              data-ocid="months.delete_dialog.confirm_button"
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+              onClick={() => void handleDeleteMonth()}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending && (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              )}
+              Delete Month
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Footer */}
       <footer className="border-t border-border py-4 mt-auto print-hide">
@@ -242,44 +311,65 @@ function MonthCard({
   month,
   index,
   onClick,
+  onDelete,
 }: {
   month: AuditMonth;
   index: number;
   onClick: () => void;
+  onDelete: () => void;
 }) {
   const isOpen = month.status === Status.open;
 
   return (
-    <button
-      type="button"
+    <div
       data-ocid={`months.item.${index}`}
-      onClick={onClick}
-      className="text-left bg-card border border-border rounded-lg p-5 shadow-card hover:shadow-card-hover hover:border-primary/30 transition-all duration-200 animate-fade-in group"
+      className="relative text-left bg-card border border-border rounded-lg p-5 shadow-card hover:shadow-card-hover hover:border-primary/30 transition-all duration-200 animate-fade-in group"
     >
-      <div className="flex items-start justify-between gap-2 mb-3">
-        <span className="font-display text-xl text-foreground group-hover:text-primary transition-colors">
-          {month.monthName}
-        </span>
-        <Badge
-          className={
-            isOpen
-              ? "bg-success text-success-text border-0 text-xs shrink-0"
-              : "bg-muted text-muted-foreground border-0 text-xs shrink-0"
-          }
-        >
-          {isOpen ? "OPEN" : "CLOSED"}
-        </Badge>
-      </div>
-      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        <Calendar className="w-3.5 h-3.5" />
-        <span>
-          Created{" "}
-          {new Date(Number(month.createdAt) / 1_000_000).toLocaleDateString(
-            "en-IN",
-            { day: "2-digit", month: "short", year: "numeric" },
-          )}
-        </span>
-      </div>
-    </button>
+      <button
+        type="button"
+        onClick={onClick}
+        className="w-full text-left"
+        aria-label={`Open ${month.monthName}`}
+      >
+        <div className="flex items-start justify-between gap-2 mb-3">
+          <span className="font-display text-xl text-foreground group-hover:text-primary transition-colors">
+            {month.monthName}
+          </span>
+          <Badge
+            className={
+              isOpen
+                ? "bg-success text-success-text border-0 text-xs shrink-0"
+                : "bg-muted text-muted-foreground border-0 text-xs shrink-0"
+            }
+          >
+            {isOpen ? "OPEN" : "CLOSED"}
+          </Badge>
+        </div>
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Calendar className="w-3.5 h-3.5" />
+          <span>
+            Created{" "}
+            {new Date(Number(month.createdAt) / 1_000_000).toLocaleDateString(
+              "en-IN",
+              { day: "2-digit", month: "short", year: "numeric" },
+            )}
+          </span>
+        </div>
+      </button>
+
+      {/* Delete button */}
+      <button
+        type="button"
+        data-ocid={`months.delete_button.${index}`}
+        onClick={(e) => {
+          e.stopPropagation();
+          onDelete();
+        }}
+        aria-label={`Delete ${month.monthName}`}
+        className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+      >
+        <Trash2 className="w-3.5 h-3.5" />
+      </button>
+    </div>
   );
 }

@@ -1,30 +1,37 @@
 import Map "mo:core/Map";
-import Text "mo:core/Text";
+import Nat "mo:core/Nat";
 import Principal "mo:core/Principal";
 
 module {
-  type OldLoanEntry = {
+  public type Status = { #open; #closed };
+
+  public type LoanEntryStatus = {
+    cersaiCompleted : Nat;
+    cersaiPending : Nat;
+    insuranceCompleted : Nat;
+    insurancePending : Nat;
+    totalLoans : Nat;
+  };
+
+  public type PendingLoanRow = {
     id : Nat;
-    auditMonthId : Nat;
     sNo : Nat;
     borrowerName : Text;
-    loanType : Text;
     loanNumber : Text;
-    cersaiApplicable : Bool;
-    cersaiDone : Bool;
-    insuranceApplicable : Bool;
-    insuranceDone : Bool;
+    cersaiPending : Bool;
+    cersaiPendingReason : Text;
+    insurancePending : Bool;
+    insurancePendingReason : Text;
   };
 
-  type OldActor = {
-    nextAuditMonthId : Nat;
-    nextLoanId : Nat;
-    auditMonths : Map.Map<Nat, { id : Nat; monthName : Text; status : { #open; #closed }; createdAt : Int }>;
-    loanEntries : Map.Map<Nat, OldLoanEntry>;
-    userProfiles : Map.Map<Principal, { name : Text }>;
+  public type AuditMonth = {
+    id : Nat;
+    monthName : Text;
+    status : Status;
+    createdAt : Int;
   };
 
-  type NewLoanEntry = {
+  public type LoanEntry = {
     id : Nat;
     auditMonthId : Nat;
     sNo : Nat;
@@ -39,30 +46,21 @@ module {
     insurancePendingReason : Text;
   };
 
-  type NewActor = {
-    nextAuditMonthId : Nat;
-    nextLoanId : Nat;
-    auditMonths : Map.Map<Nat, { id : Nat; monthName : Text; status : { #open; #closed }; createdAt : Int }>;
-    loanEntries : Map.Map<Nat, NewLoanEntry>;
-    userProfiles : Map.Map<Principal, { name : Text }>;
+  public type UserProfile = {
+    name : Text;
   };
 
-  public func run(old : OldActor) : NewActor {
-    let newLoanEntries = Map.empty<Nat, NewLoanEntry>();
+  public type OldActor = {
+    nextAuditMonthId : Nat;
+    nextLoanId : Nat;
+    auditMonths : Map.Map<Nat, AuditMonth>;
+    loanEntries : Map.Map<Nat, LoanEntry>;
+    userProfiles : Map.Map<Principal, UserProfile>;
+  };
 
-    for ((id, entry) in old.loanEntries.entries()) {
-      newLoanEntries.add(
-        id,
-        {
-          entry with
-          cersaiPendingReason = "";
-          insurancePendingReason = "";
-        },
-      );
-    };
-    {
-      old with
-      loanEntries = newLoanEntries;
-    };
+  public type NewActor = OldActor;
+
+  public func run(old : OldActor) : NewActor {
+    old;
   };
 };

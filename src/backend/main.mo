@@ -10,8 +10,8 @@ import Iter "mo:core/Iter";
 import Principal "mo:core/Principal";
 import MixinAuthorization "authorization/MixinAuthorization";
 import AccessControl "authorization/access-control";
-import Migration "migration";
 
+import Migration "migration";
 (with migration = Migration.run)
 actor {
   public type Status = { #open; #closed };
@@ -360,5 +360,36 @@ actor {
         row.cersaiPending or row.insurancePending;
       }
     );
+  };
+
+  /// New function to delete an audit month and all associated loan entries.
+  public shared ({ caller }) func deleteAuditMonth(auditMonthId : Nat) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can delete audit months");
+    };
+
+    // Check if the audit month exists
+    switch (auditMonths.get(auditMonthId)) {
+      case (null) { Runtime.trap("Audit Month not found") };
+      case (?_month) {
+        // Remove the audit month
+        auditMonths.remove(auditMonthId);
+
+        // Find and remove all associated loan entries
+        let keysToRemove = loanEntries.keys().toArray().filter(
+          func(id) {
+            switch (loanEntries.get(id)) {
+              case (null) { false };
+              case (?entry) { entry.auditMonthId == auditMonthId };
+            };
+          }
+        );
+        keysToRemove.values().forEach(
+          func(id) {
+            loanEntries.remove(id);
+          }
+        );
+      };
+    };
   };
 };

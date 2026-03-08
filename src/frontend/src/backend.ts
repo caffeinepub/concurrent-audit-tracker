@@ -145,6 +145,10 @@ export interface backendInterface {
     clearLoansForMonth(auditMonthId: bigint): Promise<void>;
     closeAuditMonth(id: bigint): Promise<void>;
     createAuditMonth(monthName: string): Promise<AuditMonth>;
+    /**
+     * / New function to delete an audit month and all associated loan entries.
+     */
+    deleteAuditMonth(auditMonthId: bigint): Promise<void>;
     deleteLoanEntry(id: bigint): Promise<void>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
@@ -242,6 +246,20 @@ export class Backend implements backendInterface {
         } else {
             const result = await this.actor.createAuditMonth(arg0);
             return from_candid_AuditMonth_n3(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async deleteAuditMonth(arg0: bigint): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteAuditMonth(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteAuditMonth(arg0);
+            return result;
         }
     }
     async deleteLoanEntry(arg0: bigint): Promise<void> {
