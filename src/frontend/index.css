@@ -1,0 +1,153 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: "Instrument Serif";
+  src: url("/assets/fonts/InstrumentSerif-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Instrument Serif";
+  src: url("/assets/fonts/InstrumentSerif-Italic.woff2") format("woff2");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "General Sans";
+  src: url("/assets/fonts/GeneralSans-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "General Sans";
+  src: url("/assets/fonts/GeneralSans-VariableItalic.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+}
+
+@layer base {
+  :root {
+    --radius: 0.375rem;
+
+    /* Navy-based banking palette */
+    --background: 0.975 0.005 250;
+    --foreground: 0.18 0.025 255;
+    --card: 1 0 0;
+    --card-foreground: 0.18 0.025 255;
+    --popover: 1 0 0;
+    --popover-foreground: 0.18 0.025 255;
+
+    /* Deep navy primary */
+    --primary: 0.22 0.07 258;
+    --primary-foreground: 0.98 0 0;
+
+    --secondary: 0.94 0.01 258;
+    --secondary-foreground: 0.25 0.06 258;
+
+    --muted: 0.95 0.008 258;
+    --muted-foreground: 0.52 0.02 258;
+
+    /* Emerald accent */
+    --accent: 0.92 0.04 155;
+    --accent-foreground: 0.15 0.08 155;
+
+    --destructive: 0.55 0.22 27;
+    --destructive-foreground: 0.98 0 0;
+
+    --border: 0.88 0.01 258;
+    --input: 0.88 0.01 258;
+    --ring: 0.45 0.06 258;
+
+    /* Success green for OPEN status */
+    --success: 0.52 0.18 150;
+    --success-foreground: 0.98 0 0;
+    --success-bg: 0.94 0.06 150;
+    --success-text: 0.28 0.1 150;
+
+    /* Amber for pending */
+    --warning: 0.72 0.15 65;
+    --warning-bg: 0.96 0.05 65;
+    --warning-text: 0.38 0.12 65;
+
+    /* Chart colors */
+    --chart-1: 0.52 0.18 150;
+    --chart-2: 0.55 0.22 27;
+    --chart-3: 0.55 0.15 258;
+    --chart-4: 0.72 0.15 65;
+    --chart-5: 0.48 0.12 312;
+
+    --sidebar: 0.22 0.07 258;
+    --sidebar-foreground: 0.98 0 0;
+    --sidebar-primary: 0.52 0.18 150;
+    --sidebar-primary-foreground: 0.98 0 0;
+    --sidebar-accent: 0.3 0.06 258;
+    --sidebar-accent-foreground: 0.98 0 0;
+    --sidebar-border: 0.3 0.05 258;
+    --sidebar-ring: 0.52 0.18 150;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: "Instrument Serif", Georgia, serif;
+  }
+
+  .text-success {
+    color: oklch(var(--success-text));
+  }
+
+  .bg-success {
+    background-color: oklch(var(--success-bg));
+  }
+
+  .text-warning {
+    color: oklch(var(--warning-text));
+  }
+
+  .bg-warning {
+    background-color: oklch(var(--warning-bg));
+  }
+}
+
+/* Print styles for PDF generation */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  #printable-report,
+  #printable-report * {
+    visibility: visible;
+  }
+
+  #printable-report {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 40px;
+    background: white;
+    color: black;
+  }
+
+  .print-hide {
+    display: none !important;
+  }
+}
