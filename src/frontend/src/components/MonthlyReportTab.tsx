@@ -13,13 +13,13 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  ArrowLeftRight,
   CheckCircle2,
   ClipboardList,
   Clock,
   FileBarChart2,
   FileText,
   HeartPulse,
-  Info,
   Loader2,
   Lock,
   Shield,
@@ -288,72 +288,31 @@ export function MonthlyReportTab({ month }: MonthlyReportTabProps) {
           </div>
         ) : summary ? (
           <div className="p-8">
-            {/* CERSAI Section */}
+            {/* Compliance Summary Table */}
             <div className="mb-8">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-1 h-5 rounded-full bg-primary" />
                 <h3 className="text-sm font-semibold uppercase tracking-wide text-foreground">
-                  CERSAI Compliance
+                  Compliance Summary
                 </h3>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <ReportRow
-                  label="CERSAI Applicable"
-                  value={Number(summary.cersaiApplicable)}
-                  status="neutral"
-                />
-                <ReportRow
-                  label="CERSAI Completed"
-                  value={Number(summary.cersaiCompleted)}
-                  status="completed"
-                />
-                <ReportRow
-                  label="CERSAI Pending"
-                  value={Number(summary.cersaiPending)}
-                  status="pending"
-                />
-              </div>
-            </div>
-
-            <Separator className="my-6" />
-
-            {/* Insurance Section */}
-            <div className="mb-8">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-1 h-5 rounded-full bg-primary" />
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-foreground">
-                  Insurance Compliance
-                </h3>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <ReportRow
-                  label="Insurance Applicable"
-                  value={Number(summary.insuranceApplicable)}
-                  status="neutral"
-                />
-                <ReportRow
-                  label="Insurance Completed"
-                  value={Number(summary.insuranceCompleted)}
-                  status="completed"
-                />
-                <ReportRow
-                  label="Insurance Pending"
-                  value={Number(summary.insurancePending)}
-                  status="pending"
-                />
-              </div>
+              <ComplianceSummaryTable
+                summary={summary}
+                pendingLoans={pendingLoans ?? []}
+              />
             </div>
 
             <Separator className="my-6" />
 
             {/* Pending Loan Accounts */}
             <div className="mb-8">
-              <div className="flex items-center gap-2 mb-4">
+              <div className="flex items-center gap-2 mb-5">
                 <div className="w-1 h-5 rounded-full bg-destructive" />
                 <h3 className="text-sm font-semibold uppercase tracking-wide text-foreground">
                   Pending Loan Accounts
                 </h3>
               </div>
+
               {!pendingLoans || pendingLoans.length === 0 ? (
                 <div
                   data-ocid="report.pending_loans.empty_state"
@@ -362,92 +321,32 @@ export function MonthlyReportTab({ month }: MonthlyReportTabProps) {
                   No pending loans for this month.
                 </div>
               ) : (
-                <div
-                  data-ocid="report.pending_loans_table"
-                  className="overflow-x-auto rounded-md border border-border"
-                >
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-muted/50 border-b border-border">
-                        <th className="py-2.5 px-4 text-left font-semibold text-xs uppercase tracking-wide text-muted-foreground w-12">
-                          S.No
-                        </th>
-                        <th className="py-2.5 px-4 text-left font-semibold text-xs uppercase tracking-wide text-muted-foreground">
-                          Borrower Name
-                        </th>
-                        <th className="py-2.5 px-4 text-left font-semibold text-xs uppercase tracking-wide text-muted-foreground">
-                          Loan Number
-                        </th>
-                        <th className="py-2.5 px-4 text-left font-semibold text-xs uppercase tracking-wide text-muted-foreground w-28">
-                          Pending
-                        </th>
-                        <th className="py-2.5 px-4 text-left font-semibold text-xs uppercase tracking-wide text-muted-foreground">
-                          Reason
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pendingLoans.map((row, idx) => {
-                        const pendingLabel =
-                          row.cersaiPending && row.insurancePending
-                            ? "Both"
-                            : row.cersaiPending
-                              ? "CERSAI"
-                              : "Insurance";
+                <div className="space-y-6">
+                  {/* ── Current Month Pending ── */}
+                  <PendingSubTable
+                    rows={pendingLoans.filter(
+                      (r) => r.broughtForwardFromMonthId === 0n,
+                    )}
+                    type="current"
+                    indexOffset={0}
+                  />
 
-                        let reasonText = "-";
-                        if (row.cersaiPending && row.insurancePending) {
-                          const cr = row.cersaiPendingReason.trim();
-                          const ir = row.insurancePendingReason.trim();
-                          if (cr && ir) {
-                            reasonText = `CERSAI: ${cr} | Insurance: ${ir}`;
-                          } else if (cr) {
-                            reasonText = `CERSAI: ${cr}`;
-                          } else if (ir) {
-                            reasonText = `Insurance: ${ir}`;
-                          }
-                        } else if (row.cersaiPending) {
-                          reasonText = row.cersaiPendingReason.trim() || "-";
-                        } else if (row.insurancePending) {
-                          reasonText = row.insurancePendingReason.trim() || "-";
-                        }
-
-                        return (
-                          <tr
-                            key={row.id.toString()}
-                            data-ocid={`report.pending_loans.item.${idx + 1}`}
-                            className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors"
-                          >
-                            <td className="py-3 px-4 text-muted-foreground font-mono text-xs">
-                              {idx + 1}
-                            </td>
-                            <td className="py-3 px-4 font-medium text-foreground">
-                              {row.borrowerName}
-                            </td>
-                            <td className="py-3 px-4 text-foreground font-mono text-xs">
-                              {row.loanNumber}
-                            </td>
-                            <td className="py-3 px-4">
-                              <span
-                                className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
-                                  pendingLabel === "Both"
-                                    ? "bg-destructive/15 text-destructive"
-                                    : pendingLabel === "CERSAI"
-                                      ? "bg-warning/20 text-warning-text"
-                                      : "bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400"
-                                }`}
-                              >
-                                {pendingLabel}
-                              </span>
-                            </td>
-                            <td className="py-3 px-4 text-muted-foreground text-xs max-w-xs">
-                              {reasonText}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                  {/* ── Brought Forward Pending ── */}
+                  {pendingLoans.some(
+                    (r) => r.broughtForwardFromMonthId !== 0n,
+                  ) && (
+                    <PendingSubTable
+                      rows={pendingLoans.filter(
+                        (r) => r.broughtForwardFromMonthId !== 0n,
+                      )}
+                      type="bf"
+                      indexOffset={
+                        pendingLoans.filter(
+                          (r) => r.broughtForwardFromMonthId === 0n,
+                        ).length
+                      }
+                    />
+                  )}
                 </div>
               )}
             </div>
@@ -477,6 +376,280 @@ export function MonthlyReportTab({ month }: MonthlyReportTabProps) {
           </p>
         </div>
       </div>
+    </div>
+  );
+}
+
+function PendingSubTable({
+  rows,
+  type,
+  indexOffset,
+}: {
+  rows: import("../backend.d").PendingLoanRow[];
+  type: "current" | "bf";
+  indexOffset: number;
+}) {
+  const isBF = type === "bf";
+
+  const getReasonText = (row: import("../backend.d").PendingLoanRow) => {
+    if (row.cersaiPending && row.insurancePending) {
+      const cr = row.cersaiPendingReason.trim();
+      const ir = row.insurancePendingReason.trim();
+      if (cr && ir) return `CERSAI: ${cr} | Insurance: ${ir}`;
+      if (cr) return `CERSAI: ${cr}`;
+      if (ir) return `Insurance: ${ir}`;
+      return "-";
+    }
+    if (row.cersaiPending) return row.cersaiPendingReason.trim() || "-";
+    if (row.insurancePending) return row.insurancePendingReason.trim() || "-";
+    return "-";
+  };
+
+  return (
+    <div>
+      {/* Sub-section heading */}
+      <div
+        className={`flex items-center gap-2 mb-2.5 px-1 ${
+          isBF ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground"
+        }`}
+      >
+        {isBF ? (
+          <ArrowLeftRight className="w-3.5 h-3.5 shrink-0" />
+        ) : (
+          <Clock className="w-3.5 h-3.5 shrink-0" />
+        )}
+        <span className="text-xs font-semibold uppercase tracking-widest">
+          {isBF ? "Brought Forward Pending" : "Current Month Pending"}
+        </span>
+        <span className="text-xs font-normal opacity-60">({rows.length})</span>
+      </div>
+
+      {rows.length === 0 ? (
+        <div
+          data-ocid="report.pending_loans.empty_state"
+          className="flex items-center justify-center py-5 rounded-md bg-muted/20 border border-dashed border-border text-xs text-muted-foreground italic"
+        >
+          No current month pending loans.
+        </div>
+      ) : (
+        <div
+          data-ocid={
+            isBF
+              ? "report.bf_pending_loans_table"
+              : "report.current_pending_loans_table"
+          }
+          className={`overflow-x-auto rounded-md border ${
+            isBF ? "border-amber-200 dark:border-amber-800/40" : "border-border"
+          }`}
+        >
+          <table className="w-full text-sm">
+            <thead>
+              <tr
+                className={`border-b ${
+                  isBF
+                    ? "bg-amber-50/70 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/40"
+                    : "bg-muted/50 border-border"
+                }`}
+              >
+                <th className="py-2.5 px-4 text-left font-semibold text-xs uppercase tracking-wide text-muted-foreground w-12">
+                  S.No
+                </th>
+                <th className="py-2.5 px-4 text-left font-semibold text-xs uppercase tracking-wide text-muted-foreground">
+                  Borrower Name
+                </th>
+                <th className="py-2.5 px-4 text-left font-semibold text-xs uppercase tracking-wide text-muted-foreground">
+                  Loan Number
+                </th>
+                <th className="py-2.5 px-4 text-left font-semibold text-xs uppercase tracking-wide text-muted-foreground w-28">
+                  Pending
+                </th>
+                {isBF && (
+                  <th className="py-2.5 px-4 text-left font-semibold text-xs uppercase tracking-wide text-amber-600 dark:text-amber-400 min-w-[120px]">
+                    B/F From Month
+                  </th>
+                )}
+                <th className="py-2.5 px-4 text-left font-semibold text-xs uppercase tracking-wide text-muted-foreground">
+                  Reason
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, idx) => {
+                const pendingLabel =
+                  row.cersaiPending && row.insurancePending
+                    ? "Both"
+                    : row.cersaiPending
+                      ? "CERSAI"
+                      : "Insurance";
+
+                return (
+                  <tr
+                    key={row.id.toString()}
+                    data-ocid={`report.pending_loans.item.${indexOffset + idx + 1}`}
+                    className={`border-b last:border-0 transition-colors ${
+                      isBF
+                        ? "bg-amber-50/30 dark:bg-amber-950/10 hover:bg-amber-50/60 dark:hover:bg-amber-950/20 border-amber-100 dark:border-amber-900/30"
+                        : "hover:bg-muted/20 border-border"
+                    }`}
+                  >
+                    <td className="py-3 px-4 text-muted-foreground font-mono text-xs">
+                      {indexOffset + idx + 1}
+                    </td>
+                    <td className="py-3 px-4 font-medium text-foreground">
+                      {row.borrowerName}
+                    </td>
+                    <td className="py-3 px-4 text-foreground font-mono text-xs">
+                      {row.loanNumber}
+                    </td>
+                    <td className="py-3 px-4">
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
+                          pendingLabel === "Both"
+                            ? "bg-destructive/15 text-destructive"
+                            : pendingLabel === "CERSAI"
+                              ? "bg-warning/20 text-warning-text"
+                              : "bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400"
+                        }`}
+                      >
+                        {pendingLabel}
+                      </span>
+                    </td>
+                    {isBF && (
+                      <td className="py-3 px-4">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
+                          <ArrowLeftRight className="w-3 h-3" />
+                          {row.broughtForwardFromMonthName}
+                        </span>
+                      </td>
+                    )}
+                    <td className="py-3 px-4 text-muted-foreground text-xs max-w-xs">
+                      {getReasonText(row)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ComplianceSummaryTable({
+  summary,
+  pendingLoans,
+}: {
+  summary: import("../backend.d").LoanEntryStatus;
+  pendingLoans: import("../backend.d").PendingLoanRow[];
+}) {
+  // Previous month pending = brought-forward loans
+  const prevInsurancePending = pendingLoans.filter(
+    (r) => r.broughtForwardFromMonthId !== 0n && r.insurancePending,
+  ).length;
+  const prevCersaiPending = pendingLoans.filter(
+    (r) => r.broughtForwardFromMonthId !== 0n && r.cersaiPending,
+  ).length;
+
+  // Count brought-forward loans that are insurance/CERSAI applicable
+  // (these should NOT appear in "eligible during the month" row)
+  const bfInsuranceApplicable = pendingLoans.filter(
+    (r) => r.broughtForwardFromMonthId !== 0n && r.insurancePending,
+  ).length;
+  const bfCersaiApplicable = pendingLoans.filter(
+    (r) => r.broughtForwardFromMonthId !== 0n && r.cersaiPending,
+  ).length;
+
+  // Current month eligible = total applicable minus brought-forward applicable
+  const currentMonthInsuranceEligible = Math.max(
+    0,
+    Number(summary.insuranceApplicable) - bfInsuranceApplicable,
+  );
+  const currentMonthCersaiEligible = Math.max(
+    0,
+    Number(summary.cersaiApplicable) - bfCersaiApplicable,
+  );
+
+  const rows = [
+    {
+      sNo: 1,
+      details:
+        "No. of accounts pending for Insurance/CERSAI registration for the previous month",
+      insurance: prevInsurancePending,
+      cersai: prevCersaiPending,
+      ocid: "report.summary_table.row.1",
+    },
+    {
+      sNo: 2,
+      details:
+        "No. of accounts eligible for Insurance/CERSAI registration during the month",
+      insurance: currentMonthInsuranceEligible,
+      cersai: currentMonthCersaiEligible,
+      ocid: "report.summary_table.row.2",
+    },
+    {
+      sNo: 3,
+      details: "No. of accounts completed",
+      insurance: Number(summary.insuranceCompleted),
+      cersai: Number(summary.cersaiCompleted),
+      ocid: "report.summary_table.row.3",
+    },
+    {
+      sNo: 4,
+      details: "No. of accounts pending",
+      insurance: Number(summary.insurancePending),
+      cersai: Number(summary.cersaiPending),
+      ocid: "report.summary_table.row.4",
+    },
+  ];
+
+  return (
+    <div
+      data-ocid="report.summary_table"
+      className="overflow-x-auto rounded-md border border-border"
+    >
+      <table className="w-full text-sm border-collapse">
+        <thead>
+          <tr className="bg-[#0ea5e9] text-white">
+            <th className="border border-[#0ea5e9]/60 py-2.5 px-4 text-center font-semibold text-xs uppercase tracking-wide w-14">
+              S.No.
+            </th>
+            <th className="border border-[#0ea5e9]/60 py-2.5 px-4 text-center font-semibold text-xs uppercase tracking-wide">
+              Details
+            </th>
+            <th className="border border-[#0ea5e9]/60 py-2.5 px-4 text-center font-semibold text-xs uppercase tracking-wide w-36">
+              Insurance
+            </th>
+            <th className="border border-[#0ea5e9]/60 py-2.5 px-4 text-center font-semibold text-xs uppercase tracking-wide w-36">
+              CERSAI
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, idx) => (
+            <tr
+              key={row.sNo}
+              data-ocid={row.ocid}
+              className={`border-b border-border last:border-0 ${
+                idx % 2 === 0 ? "bg-white dark:bg-background" : "bg-muted/30"
+              }`}
+            >
+              <td className="border border-border py-3 px-4 text-center text-muted-foreground font-mono text-xs align-middle">
+                {row.sNo}
+              </td>
+              <td className="border border-border py-3 px-4 text-foreground align-middle leading-snug">
+                {row.details}
+              </td>
+              <td className="border border-border py-3 px-4 text-center font-bold text-foreground font-display text-base align-middle">
+                {row.insurance}
+              </td>
+              <td className="border border-border py-3 px-4 text-center font-bold text-foreground font-display text-base align-middle">
+                {row.cersai}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -515,44 +688,6 @@ function MetricCard({
       <p className="text-xs text-muted-foreground mt-1 leading-tight">
         {label}
       </p>
-    </div>
-  );
-}
-
-function ReportRow({
-  label,
-  value,
-  status,
-}: {
-  label: string;
-  value: number;
-  status: "completed" | "pending" | "neutral";
-}) {
-  const iconEl =
-    status === "completed" ? (
-      <CheckCircle2 className="w-4 h-4 text-success-text shrink-0" />
-    ) : status === "pending" ? (
-      <Clock className="w-4 h-4 text-warning-text shrink-0" />
-    ) : (
-      <Info className="w-4 h-4 text-primary shrink-0" />
-    );
-
-  const valueColor =
-    status === "completed"
-      ? "text-success-text"
-      : status === "pending"
-        ? "text-warning-text"
-        : "text-primary";
-
-  return (
-    <div className="flex items-center justify-between py-3 px-4 rounded-md bg-muted/30 border border-border">
-      <div className="flex items-center gap-2.5">
-        {iconEl}
-        <span className="text-sm text-foreground">{label}</span>
-      </div>
-      <span className={`text-xl font-bold font-display ${valueColor}`}>
-        {value}
-      </span>
     </div>
   );
 }

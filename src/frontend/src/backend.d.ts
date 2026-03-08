@@ -11,6 +11,8 @@ export interface PendingLoanRow {
     id: bigint;
     sNo: bigint;
     cersaiPending: boolean;
+    broughtForwardFromMonthId: bigint;
+    broughtForwardFromMonthName: string;
     cersaiPendingReason: string;
     insurancePendingReason: string;
     insurancePending: boolean;
@@ -23,6 +25,8 @@ export interface LoanEntry {
     insuranceDone: boolean;
     insuranceApplicable: boolean;
     cersaiDone: boolean;
+    broughtForwardFromMonthId: bigint;
+    broughtForwardFromMonthName: string;
     loanType: string;
     cersaiApplicable: boolean;
     cersaiPendingReason: string;
@@ -64,9 +68,6 @@ export interface backendInterface {
     clearLoansForMonth(auditMonthId: bigint): Promise<void>;
     closeAuditMonth(id: bigint): Promise<void>;
     createAuditMonth(monthName: string): Promise<AuditMonth>;
-    /**
-     * / New function to delete an audit month and all associated loan entries.
-     */
     deleteAuditMonth(auditMonthId: bigint): Promise<void>;
     deleteLoanEntry(id: bigint): Promise<void>;
     getCallerUserProfile(): Promise<UserProfile | null>;
@@ -77,9 +78,6 @@ export interface backendInterface {
     isCallerAdmin(): Promise<boolean>;
     listAuditMonths(): Promise<Array<AuditMonth>>;
     listLoansByMonth(auditMonthId: bigint): Promise<Array<LoanEntry>>;
-    /**
-     * / New function to rollover pending loans from one month to another.
-     */
     rolloverPendingLoans(fromMonthId: bigint, toMonthId: bigint): Promise<bigint>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     updateLoanEntry(id: bigint, borrowerName: string, loanType: string, loanNumber: string, cersaiApplicable: boolean, cersaiDone: boolean, cersaiPendingReason: string, insuranceApplicable: boolean, insuranceDone: boolean, insurancePendingReason: string): Promise<void>;

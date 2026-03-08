@@ -43,6 +43,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import type { AuditMonth } from "../backend.d";
 import { Status } from "../backend.d";
+import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import {
   useCreateAuditMonth,
@@ -57,6 +58,7 @@ interface MonthsDashboardProps {
 
 export function MonthsDashboard({ onSelectMonth }: MonthsDashboardProps) {
   const { login, clear, isLoggingIn, identity } = useInternetIdentity();
+  const { isFetching: isActorFetching } = useActor();
   const { data: months, isLoading } = useListAuditMonths();
   const createMutation = useCreateAuditMonth();
   const deleteMutation = useDeleteAuditMonth();
@@ -74,6 +76,10 @@ export function MonthsDashboard({ onSelectMonth }: MonthsDashboardProps) {
 
   const isLoggedIn = !!identity;
 
+  // isActorAuthenticated is true only when logged in AND actor has finished
+  // initializing with the current identity (not still fetching).
+  const isActorAuthenticated = isLoggedIn && !isActorFetching;
+
   // Sort months newest first
   const sortedMonths = months
     ? [...months].sort((a, b) => Number(b.createdAt) - Number(a.createdAt))
@@ -82,6 +88,15 @@ export function MonthsDashboard({ onSelectMonth }: MonthsDashboardProps) {
   const openMonths = sortedMonths.filter((m) => m.status === Status.open);
 
   const handleCreateMonth = async () => {
+    if (!isLoggedIn) {
+      toast.error("Please log in first to create an audit month");
+      setNewMonthOpen(false);
+      return;
+    }
+    if (isActorFetching || !isActorAuthenticated) {
+      toast.error("Still connecting, please wait a moment and try again");
+      return;
+    }
     if (!monthName.trim()) {
       toast.error("Please enter a month name");
       return;
@@ -112,8 +127,18 @@ export function MonthsDashboard({ onSelectMonth }: MonthsDashboardProps) {
       setMonthName("");
       setRolloverSourceId("");
       setNewMonthOpen(false);
-    } catch {
-      toast.error("Failed to create audit month");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      if (
+        msg.toLowerCase().includes("unauthorized") ||
+        msg.toLowerCase().includes("not connected")
+      ) {
+        toast.error(
+          "Connection not ready yet. Please wait a moment and try again.",
+        );
+      } else {
+        toast.error(`Failed to create audit month${msg ? `: ${msg}` : ""}`);
+      }
     }
   };
 
@@ -228,91 +253,144 @@ export function MonthsDashboard({ onSelectMonth }: MonthsDashboardProps) {
               <DialogHeader>
                 <DialogTitle>Create Audit Month</DialogTitle>
                 <DialogDescription>
-                  Enter a month identifier (e.g. JAN-2026, FEB-2026)
+                  {isLoggedIn
+                    ? "Enter a month identifier (e.g. JAN-2026, FEB-2026)"
+                    : "You must be logged in to create an audit month"}
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4 py-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="month-name">Month Name</Label>
-                  <Input
-                    id="month-name"
-                    data-ocid="months.dialog.input"
-                    placeholder="e.g. JAN-2026"
-                    value={monthName}
-                    onChange={(e) => setMonthName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") void handleCreateMonth();
-                    }}
-                    className="uppercase placeholder:normal-case"
-                  />
-                </div>
-
-                {/* Optional rollover source */}
-                {openMonths.length > 0 && (
-                  <div className="space-y-1.5">
-                    <Label htmlFor="rollover-source">
-                      Roll over pending loans from{" "}
-                      <span className="text-muted-foreground font-normal">
-                        (optional)
-                      </span>
-                    </Label>
-                    <Select
-                      value={rolloverSourceId}
-                      onValueChange={setRolloverSourceId}
+              {!isLoggedIn ? (
+                <>
+                  <div className="py-4 flex flex-col items-center gap-3 text-center">
+                    <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
+                      <LogIn className="w-5 h-5 text-muted-foreground" />
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Login with Internet Identity to create and manage audit
+                      months.
+                    </p>
+                    <Button
+                      onClick={() => {
+                        setNewMonthOpen(false);
+                        login();
+                      }}
+                      disabled={isLoggingIn}
+                      className="mt-1"
+                      data-ocid="months.dialog.login_button"
                     >
-                      <SelectTrigger
-                        id="rollover-source"
-                        data-ocid="months.dialog.rollover_select"
-                      >
-                        <SelectValue placeholder="Select a month to carry forward..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {openMonths.map((m) => (
-                          <SelectItem
-                            key={m.id.toString()}
-                            value={m.id.toString()}
+                      {isLoggingIn ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <LogIn className="w-4 h-4 mr-2" />
+                      )}
+                      Login
+                    </Button>
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      variant="outline"
+                      onClick={() => setNewMonthOpen(false)}
+                      data-ocid="months.dialog.cancel_button"
+                    >
+                      Cancel
+                    </Button>
+                  </DialogFooter>
+                </>
+              ) : (
+                <>
+                  <div className="space-y-4 py-2">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="month-name">Month Name</Label>
+                      <Input
+                        id="month-name"
+                        data-ocid="months.dialog.input"
+                        placeholder="e.g. JAN-2026"
+                        value={monthName}
+                        onChange={(e) => setMonthName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") void handleCreateMonth();
+                        }}
+                        className="uppercase placeholder:normal-case"
+                      />
+                    </div>
+
+                    {/* Optional rollover source */}
+                    {openMonths.length > 0 && (
+                      <div className="space-y-1.5">
+                        <Label htmlFor="rollover-source">
+                          Roll over pending loans from{" "}
+                          <span className="text-muted-foreground font-normal">
+                            (optional)
+                          </span>
+                        </Label>
+                        <Select
+                          value={rolloverSourceId}
+                          onValueChange={setRolloverSourceId}
+                        >
+                          <SelectTrigger
+                            id="rollover-source"
+                            data-ocid="months.dialog.rollover_select"
                           >
-                            {m.monthName}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {rolloverSourceId && (
-                      <p className="text-xs text-muted-foreground">
-                        Pending CERSAI / Insurance accounts from the selected
-                        month will be automatically copied into this new month.
-                      </p>
+                            <SelectValue placeholder="Select a month to carry forward..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {openMonths.map((m) => (
+                              <SelectItem
+                                key={m.id.toString()}
+                                value={m.id.toString()}
+                              >
+                                {m.monthName}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {rolloverSourceId && (
+                          <p className="text-xs text-muted-foreground">
+                            Pending CERSAI / Insurance accounts from the
+                            selected month will be automatically copied into
+                            this new month.
+                          </p>
+                        )}
+                      </div>
                     )}
                   </div>
-                )}
-              </div>
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setNewMonthOpen(false);
-                    setMonthName("");
-                    setRolloverSourceId("");
-                  }}
-                  data-ocid="months.dialog.cancel_button"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={() => void handleCreateMonth()}
-                  disabled={
-                    createMutation.isPending ||
-                    rolloverMutation.isPending ||
-                    !monthName.trim()
-                  }
-                  data-ocid="months.dialog.confirm_button"
-                >
-                  {(createMutation.isPending || rolloverMutation.isPending) && (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  )}
-                  {rolloverSourceId ? "Create & Rollover" : "Create Month"}
-                </Button>
-              </DialogFooter>
+                  <DialogFooter>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setNewMonthOpen(false);
+                        setMonthName("");
+                        setRolloverSourceId("");
+                      }}
+                      data-ocid="months.dialog.cancel_button"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={() => void handleCreateMonth()}
+                      disabled={
+                        createMutation.isPending ||
+                        rolloverMutation.isPending ||
+                        isActorFetching ||
+                        !isActorAuthenticated ||
+                        !monthName.trim()
+                      }
+                      data-ocid="months.dialog.confirm_button"
+                    >
+                      {(createMutation.isPending ||
+                        rolloverMutation.isPending ||
+                        isActorFetching ||
+                        !isActorAuthenticated) && (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      )}
+                      {isActorFetching || !isActorAuthenticated
+                        ? "Connecting..."
+                        : rolloverSourceId
+                          ? "Create & Rollover"
+                          : "Create Month"}
+                    </Button>
+                  </DialogFooter>
+                </>
+              )}
             </DialogContent>
           </Dialog>
         </div>

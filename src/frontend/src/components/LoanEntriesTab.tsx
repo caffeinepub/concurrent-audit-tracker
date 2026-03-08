@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/table";
 import {
   AlertCircle,
+  ArrowLeftRight,
   CheckCircle2,
   Loader2,
   Pencil,
@@ -48,10 +49,19 @@ export function LoanEntriesTab({ month }: LoanEntriesTabProps) {
   const [addOpen, setAddOpen] = useState(false);
   const [editLoan, setEditLoan] = useState<LoanEntry | null>(null);
 
-  // Sort by sNo ascending
+  // Separate current-month vs brought-forward loans, each sorted by sNo
   const sortedLoans = loans
     ? [...loans].sort((a, b) => Number(a.sNo) - Number(b.sNo))
     : [];
+
+  const currentMonthLoans = sortedLoans.filter(
+    (l) => l.broughtForwardFromMonthId === 0n,
+  );
+  const broughtForwardLoans = sortedLoans.filter(
+    (l) => l.broughtForwardFromMonthId !== 0n,
+  );
+
+  const hasBroughtForward = broughtForwardLoans.length > 0;
 
   const handleDelete = async (loan: LoanEntry) => {
     try {
@@ -77,6 +87,123 @@ export function LoanEntriesTab({ month }: LoanEntriesTabProps) {
         No
       </span>
     );
+
+  const LoanTableRows = ({
+    rows,
+    indexOffset,
+    sectionType,
+  }: {
+    rows: LoanEntry[];
+    indexOffset: number;
+    sectionType: "current" | "bf";
+  }) => (
+    <>
+      {rows.map((loan, idx) => {
+        const globalIdx = indexOffset + idx;
+        return (
+          <TableRow
+            key={loan.id.toString()}
+            data-ocid={`loans.item.${globalIdx + 1}`}
+            className={`hover:bg-muted/30 text-sm ${
+              sectionType === "bf" ? "bg-amber-50/40 dark:bg-amber-950/10" : ""
+            }`}
+          >
+            <TableCell className="text-center font-mono text-xs text-muted-foreground">
+              {Number(loan.sNo)}
+            </TableCell>
+            <TableCell className="font-medium">{loan.borrowerName}</TableCell>
+            <TableCell>
+              <Badge variant="secondary" className="text-xs font-normal">
+                {loan.loanType}
+              </Badge>
+            </TableCell>
+            <TableCell className="font-mono text-xs">
+              {loan.loanNumber}
+            </TableCell>
+            <TableCell className="text-center">
+              <BoolBadge value={loan.cersaiApplicable} />
+            </TableCell>
+            <TableCell className="text-center">
+              <BoolBadge value={loan.cersaiDone} />
+            </TableCell>
+            <TableCell className="text-center">
+              <BoolBadge value={loan.insuranceApplicable} />
+            </TableCell>
+            <TableCell className="text-center">
+              <BoolBadge value={loan.insuranceDone} />
+            </TableCell>
+            {hasBroughtForward && (
+              <TableCell className="text-center">
+                {sectionType === "bf" ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
+                    <ArrowLeftRight className="w-3 h-3" />
+                    {loan.broughtForwardFromMonthName}
+                  </span>
+                ) : (
+                  <span className="text-xs text-muted-foreground/50">—</span>
+                )}
+              </TableCell>
+            )}
+            {isOpen && (
+              <TableCell>
+                <div className="flex items-center justify-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                    data-ocid={`loans.edit_button.${globalIdx + 1}`}
+                    onClick={() => setEditLoan(loan)}
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                    <span className="sr-only">Edit</span>
+                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                        data-ocid={`loans.delete_button.${globalIdx + 1}`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span className="sr-only">Delete</span>
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Loan Entry</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Are you sure you want to delete the entry for{" "}
+                          <strong>{loan.borrowerName}</strong>? This action
+                          cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel data-ocid="loans.delete_dialog.cancel_button">
+                          Cancel
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                          className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                          data-ocid="loans.delete_dialog.confirm_button"
+                          onClick={() => void handleDelete(loan)}
+                          disabled={deleteMutation.isPending}
+                        >
+                          {deleteMutation.isPending && (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          )}
+                          Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              </TableCell>
+            )}
+          </TableRow>
+        );
+      })}
+    </>
+  );
 
   return (
     <div className="space-y-4">
@@ -174,6 +301,11 @@ export function LoanEntriesTab({ month }: LoanEntriesTabProps) {
                   <TableHead className="font-semibold text-xs uppercase tracking-wide text-center">
                     Ins. Done?
                   </TableHead>
+                  {hasBroughtForward && (
+                    <TableHead className="font-semibold text-xs uppercase tracking-wide text-center min-w-[110px]">
+                      B/F From
+                    </TableHead>
+                  )}
                   {isOpen && (
                     <TableHead className="font-semibold text-xs uppercase tracking-wide text-center w-20">
                       Actions
@@ -182,100 +314,65 @@ export function LoanEntriesTab({ month }: LoanEntriesTabProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sortedLoans.map((loan, idx) => (
-                  <TableRow
-                    key={loan.id.toString()}
-                    data-ocid={`loans.item.${idx + 1}`}
-                    className="hover:bg-muted/30 text-sm"
-                  >
-                    <TableCell className="text-center font-mono text-xs text-muted-foreground">
-                      {Number(loan.sNo)}
+                {/* ── Current Month Entries section header ── */}
+                {hasBroughtForward && (
+                  <TableRow className="hover:bg-transparent bg-muted/30">
+                    <TableCell
+                      colSpan={(hasBroughtForward ? 9 : 8) + (isOpen ? 1 : 0)}
+                      className="py-2 px-4"
+                    >
+                      <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                        <span className="inline-block w-2 h-2 rounded-full bg-primary" />
+                        Current Month Entries
+                        <span className="ml-1 font-normal text-muted-foreground/70">
+                          ({currentMonthLoans.length})
+                        </span>
+                      </span>
                     </TableCell>
-                    <TableCell className="font-medium">
-                      {loan.borrowerName}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="secondary"
-                        className="text-xs font-normal"
-                      >
-                        {loan.loanType}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">
-                      {loan.loanNumber}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <BoolBadge value={loan.cersaiApplicable} />
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <BoolBadge value={loan.cersaiDone} />
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <BoolBadge value={loan.insuranceApplicable} />
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <BoolBadge value={loan.insuranceDone} />
-                    </TableCell>
-                    {isOpen && (
-                      <TableCell>
-                        <div className="flex items-center justify-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
-                            data-ocid={`loans.edit_button.${idx + 1}`}
-                            onClick={() => setEditLoan(loan)}
-                          >
-                            <Pencil className="w-3.5 h-3.5" />
-                            <span className="sr-only">Edit</span>
-                          </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-                                data-ocid={`loans.delete_button.${idx + 1}`}
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                                <span className="sr-only">Delete</span>
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>
-                                  Delete Loan Entry
-                                </AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Are you sure you want to delete the entry for{" "}
-                                  <strong>{loan.borrowerName}</strong>? This
-                                  action cannot be undone.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel data-ocid="loans.delete_dialog.cancel_button">
-                                  Cancel
-                                </AlertDialogCancel>
-                                <AlertDialogAction
-                                  className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-                                  data-ocid="loans.delete_dialog.confirm_button"
-                                  onClick={() => void handleDelete(loan)}
-                                  disabled={deleteMutation.isPending}
-                                >
-                                  {deleteMutation.isPending && (
-                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                  )}
-                                  Delete
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
-                      </TableCell>
-                    )}
                   </TableRow>
-                ))}
+                )}
+
+                {currentMonthLoans.length === 0 && hasBroughtForward ? (
+                  <TableRow className="hover:bg-transparent">
+                    <TableCell
+                      colSpan={(hasBroughtForward ? 9 : 8) + (isOpen ? 1 : 0)}
+                      className="py-4 text-center text-xs text-muted-foreground italic"
+                    >
+                      No new entries added this month.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  <LoanTableRows
+                    rows={currentMonthLoans}
+                    indexOffset={0}
+                    sectionType="current"
+                  />
+                )}
+
+                {/* ── Brought Forward section header ── */}
+                {hasBroughtForward && (
+                  <>
+                    <TableRow className="hover:bg-transparent bg-amber-50/60 dark:bg-amber-950/20">
+                      <TableCell
+                        colSpan={(hasBroughtForward ? 9 : 8) + (isOpen ? 1 : 0)}
+                        className="py-2 px-4"
+                      >
+                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-amber-700 dark:text-amber-400">
+                          <ArrowLeftRight className="w-3 h-3" />
+                          Brought Forward
+                          <span className="ml-1 font-normal text-amber-600/70 dark:text-amber-500/70">
+                            ({broughtForwardLoans.length})
+                          </span>
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                    <LoanTableRows
+                      rows={broughtForwardLoans}
+                      indexOffset={currentMonthLoans.length}
+                      sectionType="bf"
+                    />
+                  </>
+                )}
               </TableBody>
             </Table>
           </div>
@@ -284,6 +381,11 @@ export function LoanEntriesTab({ month }: LoanEntriesTabProps) {
 
       <p className="text-xs text-muted-foreground">
         {sortedLoans.length} loan{sortedLoans.length !== 1 ? "s" : ""} recorded
+        {hasBroughtForward && (
+          <span className="ml-2 text-amber-600 dark:text-amber-400">
+            · {broughtForwardLoans.length} brought forward
+          </span>
+        )}
       </p>
     </div>
   );

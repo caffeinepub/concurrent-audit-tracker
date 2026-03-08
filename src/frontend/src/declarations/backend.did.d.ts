@@ -22,6 +22,8 @@ export interface LoanEntry {
   'insuranceDone' : boolean,
   'insuranceApplicable' : boolean,
   'cersaiDone' : boolean,
+  'broughtForwardFromMonthId' : bigint,
+  'broughtForwardFromMonthName' : string,
   'loanType' : string,
   'cersaiApplicable' : boolean,
   'cersaiPendingReason' : string,
@@ -43,6 +45,8 @@ export interface PendingLoanRow {
   'id' : bigint,
   'sNo' : bigint,
   'cersaiPending' : boolean,
+  'broughtForwardFromMonthId' : bigint,
+  'broughtForwardFromMonthName' : string,
   'cersaiPendingReason' : string,
   'insurancePendingReason' : string,
   'insurancePending' : boolean,
@@ -76,9 +80,6 @@ export interface _SERVICE {
   'clearLoansForMonth' : ActorMethod<[bigint], undefined>,
   'closeAuditMonth' : ActorMethod<[bigint], undefined>,
   'createAuditMonth' : ActorMethod<[string], AuditMonth>,
-  /**
-   * / New function to delete an audit month and all associated loan entries.
-   */
   'deleteAuditMonth' : ActorMethod<[bigint], undefined>,
   'deleteLoanEntry' : ActorMethod<[bigint], undefined>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
@@ -89,9 +90,6 @@ export interface _SERVICE {
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'listAuditMonths' : ActorMethod<[], Array<AuditMonth>>,
   'listLoansByMonth' : ActorMethod<[bigint], Array<LoanEntry>>,
-  /**
-   * / New function to rollover pending loans from one month to another.
-   */
   'rolloverPendingLoans' : ActorMethod<[bigint, bigint], bigint>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
   'updateLoanEntry' : ActorMethod<

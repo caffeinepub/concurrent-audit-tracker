@@ -4,12 +4,14 @@ import Time "mo:core/Time";
 import Order "mo:core/Order";
 import Array "mo:core/Array";
 import Runtime "mo:core/Runtime";
-import Int "mo:core/Int";
 import Nat "mo:core/Nat";
 import Iter "mo:core/Iter";
+import Int "mo:core/Int";
 import Principal "mo:core/Principal";
 import MixinAuthorization "authorization/MixinAuthorization";
 import AccessControl "authorization/access-control";
+
+
 
 actor {
   public type Status = { #open; #closed };
@@ -32,6 +34,8 @@ actor {
     cersaiPendingReason : Text;
     insurancePending : Bool;
     insurancePendingReason : Text;
+    broughtForwardFromMonthId : Nat;
+    broughtForwardFromMonthName : Text;
   };
 
   public type AuditMonth = {
@@ -54,6 +58,8 @@ actor {
     insuranceApplicable : Bool;
     insuranceDone : Bool;
     insurancePendingReason : Text;
+    broughtForwardFromMonthId : Nat;
+    broughtForwardFromMonthName : Text;
   };
 
   public type UserProfile = {
@@ -180,6 +186,8 @@ actor {
           insuranceApplicable;
           insuranceDone;
           insurancePendingReason;
+          broughtForwardFromMonthId = 0;
+          broughtForwardFromMonthName = "";
         };
         loanEntries.add(id, entry);
         entry;
@@ -224,6 +232,8 @@ actor {
               insuranceApplicable;
               insuranceDone;
               insurancePendingReason;
+              broughtForwardFromMonthId = entry.broughtForwardFromMonthId;
+              broughtForwardFromMonthName = entry.broughtForwardFromMonthName;
             };
             loanEntries.add(id, updatedEntry);
           };
@@ -359,6 +369,8 @@ actor {
           cersaiPendingReason = entry.cersaiPendingReason;
           insurancePending = entry.insuranceApplicable and not entry.insuranceDone;
           insurancePendingReason = entry.insurancePendingReason;
+          broughtForwardFromMonthId = entry.broughtForwardFromMonthId;
+          broughtForwardFromMonthName = entry.broughtForwardFromMonthName;
         };
       }
     ).filter(
@@ -368,20 +380,15 @@ actor {
     );
   };
 
-  /// New function to delete an audit month and all associated loan entries.
   public shared ({ caller }) func deleteAuditMonth(auditMonthId : Nat) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can delete audit months");
     };
 
-    // Check if the audit month exists
     switch (auditMonths.get(auditMonthId)) {
       case (null) { Runtime.trap("Audit Month not found") };
       case (?_month) {
-        // Remove the audit month
         auditMonths.remove(auditMonthId);
-
-        // Find and remove all associated loan entries
         let keysToRemove = loanEntries.keys().toArray().filter(
           func(id) {
             switch (loanEntries.get(id)) {
@@ -399,17 +406,14 @@ actor {
     };
   };
 
-  /// New function to rollover pending loans from one month to another.
   public shared ({ caller }) func rolloverPendingLoans(fromMonthId : Nat, toMonthId : Nat) : async Nat {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can rollover pending loans");
     };
 
-    // Verify fromMonthId exists
     switch (auditMonths.get(fromMonthId)) {
       case (null) { Runtime.trap("Source Audit Month not found") };
-      case (?_sourceMonth) {
-        // Verify toMonthId exists and is open
+      case (?sourceMonth) {
         switch (auditMonths.get(toMonthId)) {
           case (null) { Runtime.trap("Target Audit Month not found") };
           case (?targetMonth) {
@@ -417,7 +421,6 @@ actor {
               Runtime.trap("Target audit month is closed");
             };
 
-            // Find all pending loan entries in the source month
             let pendingEntries = loanEntries.values().toArray().filter(
               func(entry) {
                 switch (entry.auditMonthId == fromMonthId) {
@@ -430,17 +433,14 @@ actor {
               }
             );
 
-            // Sort pending entries by sNo ascending
             let sortedPending = pendingEntries.sort(
               func(a, b) { Nat.compare(a.sNo, b.sNo) }
             );
 
-            // Count existing entries in target month to compute sNo offset
             let existingCount = loanEntries.values().toArray().filter(
               func(entry) { entry.auditMonthId == toMonthId }
             ).size();
 
-            // Create new entries in the target month for each pending loan
             var currentCount = existingCount + 1;
             let newEntries = sortedPending.map(
               func(entry) {
@@ -452,11 +452,21 @@ actor {
                   loanType = entry.loanType;
                   loanNumber = entry.loanNumber;
                   cersaiApplicable = entry.cersaiApplicable;
-                  cersaiDone = false; // Reset to false
+                  cersaiDone = false;
                   cersaiPendingReason = if (entry.cersaiApplicable and not entry.cersaiDone) { entry.cersaiPendingReason } else { "" };
                   insuranceApplicable = entry.insuranceApplicable;
-                  insuranceDone = false; // Reset to false
+                  insuranceDone = false;
                   insurancePendingReason = if (entry.insuranceApplicable and not entry.insuranceDone) { entry.insurancePendingReason } else { "" };
+                  broughtForwardFromMonthId = if (entry.broughtForwardFromMonthId != 0) {
+                    entry.broughtForwardFromMonthId;
+                  } else {
+                    fromMonthId;
+                  };
+                  broughtForwardFromMonthName = if (entry.broughtForwardFromMonthName != "") {
+                    entry.broughtForwardFromMonthName;
+                  } else {
+                    sourceMonth.monthName;
+                  };
                 };
                 loanEntries.add(nextLoanId, newEntry);
                 nextLoanId += 1;
@@ -464,7 +474,6 @@ actor {
               }
             );
 
-            // Return count of entries rolled over
             pendingEntries.size();
           };
         };
@@ -472,3 +481,4 @@ actor {
     };
   };
 };
+
