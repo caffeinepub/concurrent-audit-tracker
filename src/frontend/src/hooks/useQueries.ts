@@ -4,8 +4,10 @@ import type {
   LoanEntry,
   LoanEntryStatus,
   PendingLoanRow,
+  backendInterface,
 } from "../backend.d";
 import { useActor } from "./useActor";
+import { useInternetIdentity } from "./useInternetIdentity";
 
 // ── Audit Months ────────────────────────────────────────────────────────────
 
@@ -23,11 +25,21 @@ export function useListAuditMonths() {
 
 export function useCreateAuditMonth() {
   const { actor } = useActor();
+  const { identity } = useInternetIdentity();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (monthName: string) => {
-      if (!actor) throw new Error("Not connected");
-      return actor.createAuditMonth(monthName);
+      // Get the freshest actor from the query cache at call time using the
+      // current principal, to avoid using a stale anonymous actor captured
+      // at hook render time.
+      const principalStr = identity?.getPrincipal().toString();
+      const freshActor = queryClient.getQueryData<backendInterface>([
+        "actor",
+        principalStr,
+      ]);
+      const actorToUse = freshActor ?? actor;
+      if (!actorToUse) throw new Error("Not connected");
+      return actorToUse.createAuditMonth(monthName);
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["auditMonths"] });

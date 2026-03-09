@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Building2,
   Calendar,
@@ -59,6 +60,8 @@ interface MonthsDashboardProps {
 export function MonthsDashboard({ onSelectMonth }: MonthsDashboardProps) {
   const { login, clear, isLoggingIn, identity } = useInternetIdentity();
   const { isFetching: isActorFetching } = useActor();
+  const principalStr = identity?.getPrincipal().toString();
+  const queryClient = useQueryClient();
   const { data: months, isLoading } = useListAuditMonths();
   const createMutation = useCreateAuditMonth();
   const deleteMutation = useDeleteAuditMonth();
@@ -76,9 +79,9 @@ export function MonthsDashboard({ onSelectMonth }: MonthsDashboardProps) {
 
   const isLoggedIn = !!identity;
 
-  // isActorAuthenticated is true only when logged in AND actor has finished
-  // initializing with the current identity (not still fetching).
-  const isActorAuthenticated = isLoggedIn && !isActorFetching;
+  // Keep for display purposes (button label). Actor readiness for mutations
+  // is checked via the query cache directly in handleCreateMonth.
+  const _isActorReady = isLoggedIn && !isActorFetching;
 
   // Sort months newest first
   const sortedMonths = months
@@ -93,14 +96,35 @@ export function MonthsDashboard({ onSelectMonth }: MonthsDashboardProps) {
       setNewMonthOpen(false);
       return;
     }
-    if (isActorFetching || !isActorAuthenticated) {
-      toast.error("Still connecting, please wait a moment and try again");
-      return;
-    }
     if (!monthName.trim()) {
       toast.error("Please enter a month name");
       return;
     }
+
+    // Wait for the authenticated actor to be ready by polling the query cache
+    // directly (avoids stale closure values from React state).
+    const waitForAuthenticatedActor = async (
+      maxWaitMs = 10000,
+    ): Promise<boolean> => {
+      const start = Date.now();
+      while (Date.now() - start < maxWaitMs) {
+        const queryState = queryClient.getQueryState(["actor", principalStr]);
+        const isFetching = queryState?.fetchStatus === "fetching";
+        const hasData = !!queryState?.data;
+        if (!isFetching && hasData && !!identity) return true;
+        await new Promise((r) => setTimeout(r, 200));
+      }
+      return false;
+    };
+
+    const actorReady = await waitForAuthenticatedActor();
+    if (!actorReady) {
+      toast.error(
+        "Connection is taking longer than expected. Please try again in a moment.",
+      );
+      return;
+    }
+
     try {
       const newMonth = await createMutation.mutateAsync(
         monthName.trim().toUpperCase(),
@@ -370,20 +394,16 @@ export function MonthsDashboard({ onSelectMonth }: MonthsDashboardProps) {
                       disabled={
                         createMutation.isPending ||
                         rolloverMutation.isPending ||
-                        isActorFetching ||
-                        !isActorAuthenticated ||
                         !monthName.trim()
                       }
                       data-ocid="months.dialog.confirm_button"
                     >
                       {(createMutation.isPending ||
-                        rolloverMutation.isPending ||
-                        isActorFetching ||
-                        !isActorAuthenticated) && (
+                        rolloverMutation.isPending) && (
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                       )}
-                      {isActorFetching || !isActorAuthenticated
-                        ? "Connecting..."
+                      {createMutation.isPending || rolloverMutation.isPending
+                        ? "Creating..."
                         : rolloverSourceId
                           ? "Create & Rollover"
                           : "Create Month"}
