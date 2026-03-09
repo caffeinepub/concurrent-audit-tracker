@@ -55,9 +55,13 @@ import {
 
 interface MonthsDashboardProps {
   onSelectMonth: (month: AuditMonth) => void;
+  onLogout?: () => void;
 }
 
-export function MonthsDashboard({ onSelectMonth }: MonthsDashboardProps) {
+export function MonthsDashboard({
+  onSelectMonth,
+  onLogout,
+}: MonthsDashboardProps) {
   const { login, clear, isLoggingIn, identity } = useInternetIdentity();
   const { isFetching: isActorFetching } = useActor();
   const principalStr = identity?.getPrincipal().toString();
@@ -219,22 +223,21 @@ export function MonthsDashboard({ onSelectMonth }: MonthsDashboardProps) {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {isLoggedIn ? (
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-primary-foreground/70 hidden sm:block">
-                  {identity?.getPrincipal().toString().slice(0, 10)}…
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={clear}
-                  className="bg-primary-foreground/10 border-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/20"
-                >
-                  <LogOut className="w-3.5 h-3.5 mr-1.5" />
-                  Logout
-                </Button>
-              </div>
-            ) : (
+            {/* App-level sign out */}
+            {onLogout && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onLogout}
+                data-ocid="header.signout_button"
+                className="bg-primary-foreground/10 border-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/20"
+              >
+                <LogOut className="w-3.5 h-3.5 mr-1.5" />
+                Sign Out
+              </Button>
+            )}
+            {/* Internet Identity login (still available for backend mutations) */}
+            {!isLoggedIn && (
               <Button
                 variant="outline"
                 size="sm"
@@ -249,6 +252,22 @@ export function MonthsDashboard({ onSelectMonth }: MonthsDashboardProps) {
                 )}
                 Login
               </Button>
+            )}
+            {isLoggedIn && !onLogout && (
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-primary-foreground/70 hidden sm:block">
+                  {identity?.getPrincipal().toString().slice(0, 10)}…
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={clear}
+                  className="bg-primary-foreground/10 border-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/20"
+                >
+                  <LogOut className="w-3.5 h-3.5 mr-1.5" />
+                  Logout
+                </Button>
+              </div>
             )}
           </div>
         </div>
