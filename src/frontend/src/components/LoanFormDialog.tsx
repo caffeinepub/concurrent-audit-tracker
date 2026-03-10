@@ -98,6 +98,13 @@ export function LoanFormDialog({
       if (key === "insuranceDone" && value === true) {
         next.insurancePendingReason = "";
       }
+      // Clear reason when toggling applicable back to true
+      if (key === "cersaiApplicable" && value === true) {
+        next.cersaiPendingReason = "";
+      }
+      if (key === "insuranceApplicable" && value === true) {
+        next.insurancePendingReason = "";
+      }
       return next;
     });
   };
@@ -259,7 +266,7 @@ export function LoanFormDialog({
                 </div>
               </div>
             </div>
-            {/* Reason for CERSAI not done */}
+            {/* Reason for CERSAI not done (applicable=true, done=false) */}
             {form.cersaiApplicable && !form.cersaiDone && (
               <div className="space-y-1.5">
                 <Label htmlFor="cersai-reason" className="text-sm">
@@ -273,6 +280,26 @@ export function LoanFormDialog({
                   rows={2}
                   className="resize-none text-sm"
                   data-ocid="loan_form.cersai_reason_textarea"
+                />
+              </div>
+            )}
+            {/* Reason for CERSAI not applicable (optional) */}
+            {!form.cersaiApplicable && (
+              <div className="space-y-1.5">
+                <Label htmlFor="cersai-na-reason" className="text-sm">
+                  Reason for CERSAI not applicable{" "}
+                  <span className="text-muted-foreground font-normal">
+                    (Optional)
+                  </span>
+                </Label>
+                <Textarea
+                  id="cersai-na-reason"
+                  placeholder="Enter reason why CERSAI is not applicable..."
+                  value={form.cersaiPendingReason}
+                  onChange={(e) => set("cersaiPendingReason")(e.target.value)}
+                  rows={2}
+                  className="resize-none text-sm"
+                  data-ocid="loan_form.cersai_na_reason_textarea"
                 />
               </div>
             )}
@@ -328,7 +355,7 @@ export function LoanFormDialog({
                 </div>
               </div>
             </div>
-            {/* Reason for Insurance not done */}
+            {/* Reason for Insurance not done (applicable=true, done=false) */}
             {form.insuranceApplicable && !form.insuranceDone && (
               <div className="space-y-1.5">
                 <Label htmlFor="insurance-reason" className="text-sm">
@@ -344,6 +371,28 @@ export function LoanFormDialog({
                   rows={2}
                   className="resize-none text-sm"
                   data-ocid="loan_form.insurance_reason_textarea"
+                />
+              </div>
+            )}
+            {/* Reason for Insurance not applicable (optional) */}
+            {!form.insuranceApplicable && (
+              <div className="space-y-1.5">
+                <Label htmlFor="insurance-na-reason" className="text-sm">
+                  Reason for Insurance not applicable{" "}
+                  <span className="text-muted-foreground font-normal">
+                    (Optional)
+                  </span>
+                </Label>
+                <Textarea
+                  id="insurance-na-reason"
+                  placeholder="Enter reason why Insurance is not applicable..."
+                  value={form.insurancePendingReason}
+                  onChange={(e) =>
+                    set("insurancePendingReason")(e.target.value)
+                  }
+                  rows={2}
+                  className="resize-none text-sm"
+                  data-ocid="loan_form.insurance_na_reason_textarea"
                 />
               </div>
             )}
